@@ -1,4 +1,5 @@
 require './os.rb'
+require './utility.rb'
 
 class Notification
   class << self

@@ -19,7 +19,7 @@ while true
 				match_detail   = match.xpath("./mscr")
 
 				batTM  = match_detail.xpath("./btTm")
-				inning =  batTM.xpath("./Inngs")
+				inning = batTM.xpath("./Inngs")
 				runs   = inning.xpath("./@r").text
 				wkts   = inning.xpath("./@wkts").text
 				ovrs   = inning.xpath("./@ovrs").text
@@ -30,6 +30,7 @@ while true
 				body = "#{runs}/#{wkts} (#{ovrs} Ovs)"
 				summary = "#{bat__team_name} vs #{bowl_team_name}"
 				Notification.push(summary, body)
+				# exit
 				break
 			end
 		else
