@@ -5,15 +5,15 @@ require './notification.rb'
 
 class CricBuzz
 	CRICBUZZ_URL = 'http://synd.cricbuzz.com/j2me/1.0/livematches.xml'
-	IGNORE_MATCH_STATUS = ['result', 'stump']
+	IGNORE_MATCH_STATUS = ['result', 'stump', 'complete', 'preview']
 
 	def initialize
 		@headhers  = {}
-		@following = []
+		@following = {}
 	end
 
 	def run
-		matches_element = Nokogiri::XML(get_latest.body).xpath("./mchdata/match")
+		matches_element = Nokogiri::XML(get_latest.body).xpath("./mchdata/match").reject { |match| IGNORE_MATCH_STATUS.include? match.xpath("./state/@mchState").text.downcase }
 		if matches_element.empty?
 			puts "No match is live at the moment."
 			return
@@ -24,15 +24,15 @@ class CricBuzz
 
 		puts "Enter Match Number you want to follow:\n< separate with comma to follow multiple matches >"
 		matches_element.each do |match|
-			next if IGNORE_MATCH_STATUS.include? match.xpath("./state/@mchState").text.downcase
 			desc = "#{match.attr('mchDesc')} #{match.attr('mnum')}"
-			matches << match.attr('id')
+			matches << {id: match.attr('id'), match_str: match.to_s}
 			puts "Enter #{count} for #{desc}"
 			count += 1
 		end
 
-		gets.strip.split(',').each do |index|
-			@following << matches[index.to_i]
+		gets.strip.split(',').map!(&:to_i).each do |index|
+			m = matches[index]
+			@following[m[:id]] = m[:match_str]
 		end
 
 		while true
@@ -40,9 +40,13 @@ class CricBuzz
 				when 200
 					@headhers = {"if-modified-since" => @response.headers['last-modified']}
 					Nokogiri::XML(@response.body).xpath("./mchdata/match").each do |match|
-						next unless @following.include? match.attr('id')
-						# next if IGNORE_MATCH_STATUS.include? match.xpath("./state/@mchState").text.downcase
-						match_detail   = match.xpath("./mscr")
+						id = match.attr('id')
+						next unless (@following.has_key? id && @following[id] != match.to_s)
+						next if match.xpath("./state/@mchState").text.downcase == 'preview' #match has not begun yet
+
+						@following[id] = match.to_s
+
+						match_detail   = match.xpath('./mscr')
 
 						batTM  = match_detail.xpath("./btTm")
 						inning = batTM.xpath("./Inngs")
@@ -53,7 +57,7 @@ class CricBuzz
 						bowl_team_name = match_detail.xpath("./blgTm/@sName")
 						bat_team_name = batTM.attr('sName')
 
-						body = "#{runs}/#{wkts} (#{ovrs} Ovs)"
+						body = "#{bat_team_name} #{runs}/#{wkts} (#{ovrs} Ovs)"
 						summary = "#{bat_team_name} vs #{bowl_team_name}"
 
 						push_notification(summary, body)
@@ -61,7 +65,7 @@ class CricBuzz
 						break
 					end
 				when 304
-					puts "Not Modified"
+					# puts "Not Modified"
 				else
 					puts "Something else happened"
 			end
@@ -71,6 +75,8 @@ class CricBuzz
 
 	def get_latest
 		@response = http.get(CRICBUZZ_URL, headers: @headhers)
+		puts "@response.code.to_i => #{@response.code.to_i}"
+		@response
 	end
 
 	private
