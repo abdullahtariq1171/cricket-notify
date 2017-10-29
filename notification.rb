@@ -11,7 +11,7 @@ class Notification
       else
         command = "notify-send #{summary.gsub(/ /, '\ ')} #{(Utility::escape body).gsub(/ /, '\ ')} --expire-time=1"
       end
-      puts "Command is '#{command}'"
+      # puts "Command is '#{command}'"
       `#{command}`
     end
   end

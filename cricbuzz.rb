@@ -41,8 +41,10 @@ class CricBuzz
 					@headhers = {"if-modified-since" => @response.headers['last-modified']}
 					Nokogiri::XML(@response.body).xpath("./mchdata/match").each do |match|
 						id = match.attr('id')
-						next unless (@following.has_key? id && @following[id] != match.to_s)
-						next if match.xpath("./state/@mchState").text.downcase == 'preview' #match has not begun yet
+						# puts "@following[id] \n***\n\n#{@following[id]}\n***\n#{match.to_s}\n => #{@following[id] != match.to_s}"
+						next unless @following.has_key? id
+						next unless @following[id] != match.to_s
+						# next if match.xpath("./state/@mchState").text.downcase == 'preview' #match has not begun yet
 
 						@following[id] = match.to_s
 
@@ -75,7 +77,7 @@ class CricBuzz
 
 	def get_latest
 		@response = http.get(CRICBUZZ_URL, headers: @headhers)
-		puts "@response.code.to_i => #{@response.code.to_i}"
+		# puts "@response.code.to_i => #{@response.code.to_i}"
 		@response
 	end
 
@@ -85,6 +87,7 @@ class CricBuzz
 		end
 
 		def push_notification(summary, body)
+			puts "#{summary}-#{body}"
 			Notification.push(summary, body)
 		end
 
