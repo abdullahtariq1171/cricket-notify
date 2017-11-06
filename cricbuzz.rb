@@ -1,61 +1,67 @@
-require 'nokogiri'
 require 'httparty'
 require './notification.rb'
 
-
 class CricBuzz
-	CRICBUZZ_URL = 'http://synd.cricbuzz.com/j2me/1.0/livematches.xml'
-	IGNORE_MATCH_STATUS = ['result', 'stump', 'complete', 'preview']
+  CRICBUZZ_URL = 'http://synd.cricbuzz.com/j2me/1.0/livematches.xml'
+  IGNORE_MATCH_STATUS = ['result', 'stump', 'complete', 'preview']
 
-	def initialize
-		@headhers  = {}
-		@following = {}
-	end
+  def initialize
+    @headers  = {}
+    @following = {}
+  end
 
 	def run
-		matches_element = Nokogiri::XML(get_latest.body).xpath("./mchdata/match").reject { |match| IGNORE_MATCH_STATUS.include? match.xpath("./state/@mchState").text.downcase }
-		if matches_element.empty?
+		response_json = get_latest.parsed_response['mchdata']
+
+		matches = response_json['match']
+
+		matches.reject! { |match| IGNORE_MATCH_STATUS.include? match['state']['mchState'].downcase }
+		matches.each { |match| p "match #{match['mchDesc']} ->#{match['state']['mchState'].downcase}<-"}
+		puts matches
+
+		if matches.empty?
 			puts "No match is live at the moment."
 			return
 		end
 
 		count = 0
-		matches = []
+		matches_arr = []
 
 		puts "Enter Match Number you want to follow:\n< separate with comma to follow multiple matches >"
-		matches_element.each do |match|
-			desc = "#{match.attr('mchDesc')} #{match.attr('mnum')}"
-			matches << {id: match.attr('id'), match_str: match.to_s}
-			puts "Enter #{count} for #{desc}"
+		matches.each do |match|
+			desc = "#{match['mchDesc']} #{match['mnum']}"
+			matches_arr << {id: match['id'], match_str: match.to_s}
+			p "Enter #{count} for #{desc}"
 			count += 1
 		end
 
 		gets.strip.split(',').map!(&:to_i).each do |index|
-			m = matches[index]
+			m = matches_arr[index]
 			@following[m[:id]] = m[:match_str]
 		end
-
+		puts "@following #{@following}"
 		while true
 			case (get_latest.code.to_i)
 				when 200
-					@headhers = {"if-modified-since" => @response.headers['last-modified']}
-					Nokogiri::XML(@response.body).xpath("./mchdata/match").each do |match|
-						id = match.attr('id')
-						next unless (@following.has_key? id && @following[id] != match.to_s)
-						next if match.xpath("./state/@mchState").text.downcase == 'preview' #match has not begun yet
+					@headers = {"if-modified-since" => @response.headers['last-modified']}
+					puts "200 => @headers: #{@headers}"
+					@response.parsed_response['mchdata']['match'].each do |match|
+						id = match['id']
+						next unless @following.has_key? id && @following[id] != match.to_s
+						next if match['state']['mchState'].downcase == 'preview' #match hasn't begun yet
 
 						@following[id] = match.to_s
 
-						match_detail   = match.xpath('./mscr')
+						match_detail   = match['mscr']
+						puts "match_detail #{match_detail}"
+						batTM  = match_detail['btTm']
+						inning = batTM['Inngs']
+						runs   = inning['r']
+						wkts   = inning['wkts']
+						ovrs   = inning['ovrs']
 
-						batTM  = match_detail.xpath("./btTm")
-						inning = batTM.xpath("./Inngs")
-						runs   = inning.attr('r')
-						wkts   = inning.attr('wkts')
-						ovrs   = inning.attr('ovrs')
-
-						bowl_team_name = match_detail.xpath("./blgTm/@sName")
-						bat_team_name = batTM.attr('sName')
+						bowl_team_name = match_detail['blgTm']['sName']
+						bat_team_name = batTM['sName']
 
 						body = "#{bat_team_name} #{runs}/#{wkts} (#{ovrs} Ovs)"
 						summary = "#{bat_team_name} vs #{bowl_team_name}"
@@ -65,7 +71,7 @@ class CricBuzz
 						break
 					end
 				when 304
-					# puts "Not Modified"
+					puts "304 => @headers: #{@headers}"
 				else
 					puts "Something else happened"
 			end
@@ -73,20 +79,18 @@ class CricBuzz
 		end
 	end
 
-	def get_latest
-		@response = http.get(CRICBUZZ_URL, headers: @headhers)
-		puts "@response.code.to_i => #{@response.code.to_i}"
-		@response
-	end
+  def get_latest
+    @response = http.get(CRICBUZZ_URL, headers: @headers)
+  end
 
-	private
-		def http
-			@httparty ||= HTTParty
-		end
+  private
+    def http
+      @httparty ||= HTTParty
+    end
 
-		def push_notification(summary, body)
-			Notification.push(summary, body)
-		end
+    def push_notification(summary, body)
+      Notification.push(summary, body)
+    end
 
 end
 
