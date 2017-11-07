@@ -17,7 +17,6 @@ class CricBuzz
 
 		matches.reject! { |match| IGNORE_MATCH_STATUS.include? match['state']['mchState'].downcase }
 		matches.each { |match| p "match #{match['mchDesc']} ->#{match['state']['mchState'].downcase}<-"}
-		puts matches
 
 		if matches.empty?
 			puts "No match is live at the moment."
@@ -37,23 +36,23 @@ class CricBuzz
 
 		gets.strip.split(',').map!(&:to_i).each do |index|
 			m = matches_arr[index]
-			@following[m[:id]] = m[:match_str]
+      @following[m[:id]] = m[:match_str]
 		end
-		puts "@following #{@following}"
+
 		while true
 			case (get_latest.code.to_i)
 				when 200
 					@headers = {"if-modified-since" => @response.headers['last-modified']}
 					puts "200 => @headers: #{@headers}"
-					@response.parsed_response['mchdata']['match'].each do |match|
+					matches = @response.parsed_response['mchdata']['match'].select { |match| @following.has_key? match['id']}
+					matches.each do |match|
 						id = match['id']
-						next unless @following.has_key? id && @following[id] != match.to_s
 						next if match['state']['mchState'].downcase == 'preview' #match hasn't begun yet
-
-						@following[id] = match.to_s
+						puts "id #{id} => Changed? #{@following[id] != match.to_s}"
+						next if @following[id] == match.to_s #nothing changed, same as previous
 
 						match_detail   = match['mscr']
-						puts "match_detail #{match_detail}"
+
 						batTM  = match_detail['btTm']
 						inning = batTM['Inngs']
 						runs   = inning['r']
@@ -67,8 +66,7 @@ class CricBuzz
 						summary = "#{bat_team_name} vs #{bowl_team_name}"
 
 						push_notification(summary, body)
-						# exit
-						break
+						@following[id] = match.to_s
 					end
 				when 304
 					puts "304 => @headers: #{@headers}"
