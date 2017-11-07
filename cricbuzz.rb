@@ -1,13 +1,15 @@
 require 'httparty'
+require 'yaml'
 require './notification.rb'
 
 class CricBuzz
   CRICBUZZ_URL = 'http://synd.cricbuzz.com/j2me/1.0/livematches.xml'
   IGNORE_MATCH_STATUS = ['result', 'stump', 'complete', 'preview']
 
-  def initialize
+  def initialize(config_file)
     @headers  = {}
     @following = {}
+    @config = YAML.load_file(config_file)
   end
 
 	def run
@@ -73,7 +75,7 @@ class CricBuzz
 				else
 					puts "Something else happened"
 			end
-			sleep 3
+			sleep @config['SLEEP_DELAY']
 		end
 	end
 
@@ -92,4 +94,4 @@ class CricBuzz
 
 end
 
-CricBuzz.new.run
+CricBuzz.new('config.yml').run
