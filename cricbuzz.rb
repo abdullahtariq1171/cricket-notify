@@ -36,7 +36,7 @@ class CricBuzz
 			count += 1
 		end
 
-		gets.strip.split(',').map!(&:to_i).each do |index|
+		STDIN.gets.strip.split(',').map!(&:to_i).each do |index|
 			m = matches_arr[index]
       @following[m[:id]] = m[:match_str]
 		end
@@ -94,4 +94,8 @@ class CricBuzz
 
 end
 
-CricBuzz.new('config.yml').run
+#converting ARGV to hash
+params =  ARGV.map{|e| e.split /\=/ }.inject({}) {|memo,x| memo.merge(x[0] => x[1]) }
+
+config_file_name = params['CONFIG'] ||= 'config.yml'
+CricBuzz.new(config_file_name).run
