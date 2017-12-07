@@ -1,4 +1,4 @@
-# cricket-notify
+# cricket-notify [![HitCount](http://hits.dwyl.io/abdullahtariq1171/cricket-notify.svg)](http://hits.dwyl.io/abdullahtariq1171/cricket-notify)
 
 **Q: What's the motive behind cricket-notify?**  
 A: To write such program which will notify the user about cricket match score with basic customization options.
